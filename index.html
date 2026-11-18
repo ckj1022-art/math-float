@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Math Atelier｜數學浮動小白板</title>
+<title>數學小浮板｜Math Float</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
 <style>
@@ -572,6 +572,22 @@ header.top{cursor:auto}
 .compact .menu .it small{display:none}
 .compact .menu .it .pi{width:30px;height:30px}
 .compact .menu .ttl{font-size:16px}
+.cclr{width:32px;height:32px;min-width:32px;padding:0;border:0;background:transparent;box-shadow:none;display:grid;place-items:center}
+.cclr i{display:block;width:22px;height:22px;border-radius:50%;border:3px solid #fffaf5;box-shadow:0 0 0 1.5px rgba(120,100,110,.5),0 2px 4px rgba(80,60,75,.3)}
+.cpop{position:absolute;z-index:95;display:flex;gap:8px;padding:8px 12px;border-radius:999px;background:var(--glass);box-shadow:0 10px 24px -8px rgba(70,50,65,.6);pointer-events:none}
+.cpop[hidden]{display:none}
+.cpop i{display:block;width:30px;height:30px;border-radius:50%;border:3px solid #fffaf5;box-shadow:0 0 0 1px rgba(120,100,110,.4);transition:transform .1s}
+.cpop i.on{transform:scale(1.25);box-shadow:0 0 0 3px var(--blue)}
+.theme-dash .cclr i,.theme-dash .cpop i{border-color:#102E43;box-shadow:0 0 0 1.5px rgba(170,220,230,.5)}
+.theme-dash .cpop{box-shadow:0 10px 24px -8px rgba(0,0,0,.7),inset 0 0 0 1px rgba(170,220,230,.18)}
+.side h3{line-height:1.15}
+.side h3 i{display:block;font-style:normal;font-family:var(--sans);font-size:14px;font-weight:600;line-height:1.5;letter-spacing:.12em;margin-top:2px}
+.mcredit{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
+.mcredit em{font-family:var(--serif);font-size:17px;color:var(--plum)}
+.mcredit span{font-size:11.5px;color:var(--mute);letter-spacing:.04em}
+.mcredit a{margin-top:3px;font-size:13.5px;font-weight:700;color:#fff;background:#5f82b4;padding:8px 16px;border-radius:999px;text-decoration:none;-webkit-user-select:none;user-select:none}
+.theme-dash .mcredit a{background:#70D6BD;color:#071B2C}
+.compact .mcredit span{font-size:10.5px}
 </style>
 </head>
 <body>
@@ -583,9 +599,9 @@ header.top{cursor:auto}
 <div id="app">
  <div class="frame">
   <header class="top">
-    <div class="brand"><span class="moon"></span><div><b>MATH ATELIER</b><small>數學浮動小白板</small></div></div>
+    <div class="brand"><span class="moon"></span><div><b>MATH FLOAT</b><small>數學小浮板</small></div></div>
     <div class="notch"><nav class="pills" id="pills"></nav></div>
-    <div class="tr"><button class="tb" id="shotBtn" title="截取螢幕畫面的一部分，貼到白板"></button><button class="tb" id="setBtn" title="設定"></button><button class="tb" id="nightBtn"></button><button class="tb" id="pipBtn"></button></div>
+    <div class="tr"><button class="tb" id="shotBtn" title="截取螢幕畫面的一部分，貼到白板"></button><button class="tb" id="layoutBtn"></button><button class="tb" id="setBtn" title="設定"></button><button class="tb" id="nightBtn"></button><button class="tb" id="pipBtn"></button></div>
   </header>
   <aside class="rail"><div class="cap" id="modes"></div><div class="cap" id="acts"></div></aside>
   <main id="board" class="bg-grid"><div id="widgets" class="wlayer"></div><canvas id="ink"></canvas><div class="pager" id="pager"></div></main>
@@ -596,7 +612,6 @@ header.top{cursor:auto}
     <div class="szbox"><div class="lab"><span>WEIGHT 粗細</span><b id="szVal">4</b></div><input type="range" id="szR" min="1" max="16" value="4" title="筆的粗細"></div>
     <button class="wide" id="toolsBtn">Σ 全部工具</button>
     <div class="polyart"></div>
-    <div class="credit"><em>Ray's Classroom Lab</em><br>Design by Ray Chen／陳耿睿</div>
   </aside>
  </div>
  <div class="menu" id="menu" hidden></div>
@@ -1798,7 +1813,7 @@ async function exportPDF() {
   if (inFrame) { toast('這裡是預覽畫面，無法下載檔案。請下載 HTML 檔，用 Chrome 或 Edge 開啟後再按 PDF。', 6000); return; }
   exporting = true;
   try {
-    const blob = await makePDF(), d = new Date(), name = `數學小白板_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.pdf`;
+    const blob = await makePDF(), d = new Date(), name = `數學小浮板_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.pdf`;
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 20000);
     toast(`已存成 ${name}（共 ${pages.length} 頁）`, 4000);
   } catch (e) { toast('PDF 製作失敗：' + (e.message || e), 5000); }
@@ -1846,21 +1861,44 @@ applyTheme(theme);
 const shotBtn = q('#shotBtn'); shotBtn.innerHTML = I('<path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16"/><circle cx="12" cy="12" r="3"/>') + '<span>截圖</span>'; shotBtn.onclick = () => screenshot();
 const setBtn = q('#setBtn'); setBtn.innerHTML = I('<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.6"/><circle cx="8" cy="17" r="2.6"/>') + '<span>設定</span>';
 const swatch = c => `<svg class="pi" width="42" height="42" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="${c[0]}" stroke="rgba(120,120,130,.35)"/><path d="M24 4a20 20 0 0 1 17.3 30L24 24z" fill="${c[1]}"/><path d="M41.3 34A20 20 0 0 1 6.7 34L24 24z" fill="${c[2]}"/></svg>`;
-setBtn.onclick = e => { e.stopPropagation(); openTray(setBtn, '設定', 'Settings', Object.keys(THEMES).map(k => ({ ic: swatch(THEMES[k].sw), nm: THEMES[k].name, en: THEMES[k].en, on: theme === k, fn: () => applyTheme(k) })).concat([{ ic: PI('full', 42), nm: '完整', en: 'Full', on: !compactPref, fn: () => setLayout(false) }, { ic: PI('compact', 42), nm: '精簡', en: 'Compact', on: compactPref, fn: () => setLayout(true) }])); };
+setBtn.onclick = e => { e.stopPropagation(); openTray(setBtn, '設定', 'Settings', Object.keys(THEMES).map(k => ({ ic: swatch(THEMES[k].sw), nm: THEMES[k].name, en: THEMES[k].en, on: theme === k, fn: () => applyTheme(k) })).concat([{ ic: PI('full', 42), nm: '完整', en: 'Full', on: !compactPref, fn: () => setLayout(false) }, { ic: PI('compact', 42), nm: '精簡', en: 'Compact', on: compactPref, fn: () => setLayout(true) }]), () => {
+  const c = h('div', 'mcredit', `<em>Ray's Classroom Lab</em><span>數學小浮板｜Design by Ray Chen／陳耿睿</span><a href="https://www.facebook.com/ray.chen.7370" target="_blank" rel="noopener">💬 意見回饋・到 FB 粉專留言</a>`);
+  c.addEventListener('pointerdown', e => e.stopPropagation()); menu.appendChild(c);
+}); };
 /* ---------- compact layout for the floating window: one thin toolbar, the rest is board ---------- */
 let compactPref = false; try { compactPref = localStorage.getItem('ma-layout') === 'compact'; } catch (e) { }
 function setLayout(c) { compactPref = c; try { localStorage.setItem('ma-layout', c ? 'compact' : 'full'); } catch (e) { } setCompact(c); }
 const cbar = h('div', 'cbar'), cgem = h('button', 'cgem'); cgem.title = '收成小球'; cgem.innerHTML = '<i></i>'; cgem.onclick = () => setMini(true);
 const csep = () => h('span', 'csep'), homes = [];
+// one button flips between the full and the compact layout
+const layoutBtn = q('#layoutBtn');
+const IC_FULL = I('<path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15"/>'), IC_COMPACT = I('<path d="M9 4v3.5A1.5 1.5 0 017.5 9H4M15 4v3.5A1.5 1.5 0 0016.5 9H20M20 15h-3.5a1.5 1.5 0 00-1.5 1.5V20M4 15h3.5A1.5 1.5 0 019 16.5V20"/>');
+function updLayoutBtn() { const c = app.classList.contains('compact'); layoutBtn.innerHTML = (c ? IC_FULL : IC_COMPACT) + `<span>${c ? '完整' : '精簡'}</span>`; layoutBtn.title = c ? '切換成完整介面' : '切換成精簡介面'; }
+layoutBtn.onclick = () => { const to = !app.classList.contains('compact'); if (pipWin) setCompact(to); else setLayout(to); };
+updLayoutBtn();
+// colour: one dot; press it and slide across the strip to pick (a plain tap goes to the next colour)
+const cclr = h('button', 'cclr', '<i></i>'); cclr.title = '筆色：按住左右滑動選顏色，點一下換下一個'; cclr.style.touchAction = 'none';
+const cpop = h('div', 'cpop'); cpop.hidden = true; app.appendChild(cpop); COLORS.forEach(c => { const d = h('i'); d.style.background = c; cpop.appendChild(d); });
+const _pick = pickColor; pickColor = c => { _pick(c); cclr.firstChild.style.background = c; }; cclr.firstChild.style.background = color;
+cclr.addEventListener('pointerdown', e => {
+  e.preventDefault(); try { cclr.setPointerCapture(e.pointerId); } catch (_) {} closeTray();
+  const fr = app.getBoundingClientRect(), r = cclr.getBoundingClientRect(); cpop.hidden = false;
+  cpop.style.left = Math.max(6, Math.min(fr.width - cpop.offsetWidth - 6, r.left - fr.left - 12)) + 'px'; cpop.style.top = (r.bottom - fr.top + 8) + 'px';
+  const dots = [...cpop.children], sx = e.clientX; let idx = COLORS.indexOf(color), moved = false;
+  const mark = () => dots.forEach((d, i) => d.classList.toggle('on', i === idx)); mark();
+  const mv = ev => { if (Math.abs(ev.clientX - sx) > 6) moved = true; if (!moved) return; let best = 0, bd = 1e9; dots.forEach((d, i) => { const b = d.getBoundingClientRect(), dist = Math.abs(ev.clientX - (b.left + b.width / 2)); if (dist < bd) { bd = dist; best = i; } }); if (best !== idx) { idx = best; mark(); pickColor(COLORS[idx]); } };
+  const up = () => { cclr.removeEventListener('pointermove', mv); cclr.removeEventListener('pointerup', up); cclr.removeEventListener('pointercancel', up); cpop.hidden = true; if (!moved) pickColor(COLORS[(COLORS.indexOf(color) + 1) % COLORS.length]); if (mode === 'hand' || mode === 'eraser') setMode(lastDraw); };
+  cclr.addEventListener('pointermove', mv); cclr.addEventListener('pointerup', up); cclr.addEventListener('pointercancel', up);
+});
 function setCompact(on) {
   if (on === app.classList.contains('compact')) return; closeTray();
   if (on) {
-    const move = [q('#modes'), q('#acts'), q('#colors'), q('#toolsBtn'), q('.tr')];
+    const move = [q('#modes'), q('#acts'), q('#toolsBtn'), q('.tr')];
     homes.length = 0; move.forEach(n => homes.push([n, n.parentNode, n.nextSibling]));
-    cbar.innerHTML = ''; cbar.append(cgem, move[0], csep(), move[1], csep(), move[2], csep(), move[3], move[4]);
+    cbar.innerHTML = ''; cbar.append(cgem, move[0], csep(), move[1], csep(), cclr, move[2], move[3]);
     q('.frame').insertBefore(cbar, q('.frame').firstChild);
   } else { homes.forEach(([n, p, nx]) => p.insertBefore(n, nx && nx.parentNode === p ? nx : null)); cbar.remove(); }
-  app.classList.toggle('compact', on); fit(); setTimeout(fit, 150);
+  app.classList.toggle('compact', on); updLayoutBtn(); fit(); setTimeout(fit, 150);
 }
 app._setCompact = setCompact;
 setTimeout(() => setCompact(compactPref), 0);
@@ -1887,12 +1925,14 @@ async function goFloat() {
     return;
   }
   try {
-    const pw = await documentPictureInPicture.requestWindow({ width: 780, height: 580 });
+    const half = Math.max(420, Math.round((window.outerWidth || window.innerWidth) / 2)), tall = Math.max(360, window.innerHeight);
+    const pw = await documentPictureInPicture.requestWindow({ width: half, height: tall });
+    try { pw.moveTo(Math.round(window.screenX + (window.outerWidth || half * 2) - half), window.screenY); } catch (e) { } // right half of the browser window, where the browser allows it
     document.querySelectorAll('style,link[rel=stylesheet]').forEach(s => pw.document.head.appendChild(s.cloneNode(true)));
-    pw.document.title = 'Math Atelier'; pw.document.body.appendChild(app);
-    placeholder.hidden = false; win = pw; pipWin = pw; updPip(); pw.document.body.style.background = THEMES[theme].body;
+    pw.document.title = '數學小浮板'; pw.document.body.appendChild(app);
+    placeholder.hidden = false; win = pw; pipWin = pw; updPip(); setCompact(true); pw.document.body.style.background = THEMES[theme].body;
     pw.document.addEventListener('keydown', onKey); pw.addEventListener('resize', fit);
-    pw.addEventListener('pagehide', () => { app.classList.remove('mini'); orb.hidden = true; document.body.appendChild(app); placeholder.hidden = true; win = window; pipWin = null; updPip(); requestAnimationFrame(fit); });
+    pw.addEventListener('pagehide', () => { setCompact(compactPref); app.classList.remove('mini'); orb.hidden = true; document.body.appendChild(app); placeholder.hidden = true; win = window; pipWin = null; updPip(); requestAnimationFrame(fit); });
     pw.requestAnimationFrame(fit); setTimeout(fit, 300);
   } catch (e) { toast('無法開啟浮動視窗：' + (e.message || e)); }
 }
