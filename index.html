@@ -588,6 +588,12 @@ header.top{cursor:auto}
 .mcredit a{margin-top:3px;font-size:13.5px;font-weight:700;color:#fff;background:#5f82b4;padding:8px 16px;border-radius:999px;text-decoration:none;-webkit-user-select:none;user-select:none}
 .theme-dash .mcredit a{background:#70D6BD;color:#071B2C}
 .compact .mcredit span{font-size:10.5px}
+.desktop header.top,.desktop .cbar{-webkit-app-region:drag}
+.desktop header.top button,.desktop .cbar button,.desktop .notch,.desktop .brand,.desktop .cbar .cap{-webkit-app-region:no-drag}
+.desktop #orb{-webkit-app-region:no-drag}
+.desktop .wclose:hover{background:#e0566b;color:#fff}
+/* the top toolbar has room for every tool even in a short window */
+.compact .rb[data-mode=line],.compact #acts .rb:nth-child(2){display:flex}
 </style>
 </head>
 <body>
@@ -1615,18 +1621,20 @@ async function screenshot() {
     let inFrame = false; try { inFrame = window.top !== window; } catch (e) { inFrame = true; }
     toast(inFrame ? '這裡是預覽畫面，無法截圖。請下載 HTML 檔，用電腦版 Chrome 或 Edge 開啟。' : '這個瀏覽器不支援螢幕截圖，請改用電腦版 Chrome 或 Edge。', 6000); return;
   }
-  let stream;
+  let stream; const hideSelf = async v => { if (window.desk) { try { await window.desk.opacity(v ? 0 : 1); } catch (e) { } } };
+  await hideSelf(true); // desktop app: keep the board itself out of the picture
   try { stream = await md.getDisplayMedia({ video: true, audio: false }); }
-  catch (e) { toast(e && e.name === 'NotAllowedError' ? '已取消截圖（或這裡不允許截圖）' : '無法截圖：' + (e.message || e), 4000); return; }
+  catch (e) { await hideSelf(false); toast(e && e.name === 'NotAllowedError' ? '已取消截圖（或這裡不允許截圖）' : '無法截圖：' + (e.message || e), 4000); return; }
   try {
     const v = document.createElement('video'); v.muted = true; v.srcObject = stream; await v.play();
     await new Promise(r => setTimeout(r, 450)); // let the share dialog disappear from the picture
     const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) throw new Error('沒有收到畫面');
-    const k = Math.min(1, 1800 / vw), c = document.createElement('canvas'); c.width = Math.round(vw * k); c.height = Math.round(vh * k);
+    const k = Math.min(1, 2200 / vw), c = document.createElement('canvas'); c.width = Math.round(vw * k); c.height = Math.round(vh * k);
     c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-    stream.getTracks().forEach(t => t.stop()); stream = null;
+    stream.getTracks().forEach(t => t.stop()); stream = null; await hideSelf(false);
     openCropper(c);
   } catch (e) { toast('截圖失敗：' + (e.message || e), 4000); }
+  await hideSelf(false);
   if (stream) stream.getTracks().forEach(t => t.stop());
 }
 function placeShot(c) {
@@ -1907,7 +1915,19 @@ setTimeout(() => setCompact(compactPref), 0);
 const orb = q('#orb'); let miniPrev = null;
 function setMini(on) {
   closeTray(); app.classList.toggle('mini', on); orb.hidden = !on;
-  if (pipWin) { try { if (on) { miniPrev = [pipWin.outerWidth, pipWin.outerHeight]; pipWin.resizeTo(150, 150); } else if (miniPrev) pipWin.resizeTo(miniPrev[0], miniPrev[1]); } catch (e) { } }
+  if (window.desk) { try { window.desk.mini(on); } catch (e) { } }
+  if (pipWin) {
+    const pw = pipWin;
+    try {
+      if (on) { miniPrev = [pw.outerWidth, pw.outerHeight]; pw.resizeTo(150, 150); }
+      else if (miniPrev) {
+        const [tw, th] = miniPrev; pw.resizeTo(tw, th);
+        // some browsers ignore the first request: check, try once more a different way, then tell the user
+        setTimeout(() => { try { if (pipWin === pw && (pw.outerWidth < tw - 40 || pw.outerHeight < th - 40)) pw.resizeBy(tw - pw.outerWidth, th - pw.outerHeight); } catch (e) { } }, 60);
+        setTimeout(() => { if (pipWin === pw && (pw.outerWidth < tw - 40 || pw.outerHeight < th - 40)) toast('瀏覽器沒有把視窗放回原來的大小，請拖視窗的邊或角拉大', 5000); fit(); }, 500);
+      }
+    } catch (e) { }
+  }
   if (!on) { fit(); setTimeout(fit, 200); setTimeout(fit, 600); }
 }
 q('.brand').title = '點一下：收成小球';
@@ -1927,7 +1947,6 @@ async function goFloat() {
   try {
     const half = Math.max(420, Math.round((window.outerWidth || window.innerWidth) / 2)), tall = Math.max(360, window.innerHeight);
     const pw = await documentPictureInPicture.requestWindow({ width: half, height: tall });
-    try { pw.moveTo(Math.round(window.screenX + (window.outerWidth || half * 2) - half), window.screenY); } catch (e) { } // right half of the browser window, where the browser allows it
     document.querySelectorAll('style,link[rel=stylesheet]').forEach(s => pw.document.head.appendChild(s.cloneNode(true)));
     pw.document.title = '數學小浮板'; pw.document.body.appendChild(app);
     placeholder.hidden = false; win = pw; pipWin = pw; updPip(); setCompact(true); pw.document.body.style.background = THEMES[theme].body;
@@ -1940,6 +1959,15 @@ pipBtn.onclick = goFloat;
 document.getElementById('backBtn').onclick = () => pipWin && pipWin.close();
 window.addEventListener('resize', () => { if (!pipWin) fit(); });
 setMode('pen'); pickColor(PLUM); setNight(false); updPip(); fit();
+/* ---------- desktop app (Electron shell): frameless window, own minimise / close buttons ---------- */
+if (window.desk) {
+  app.classList.add('desktop'); pipBtn.style.display = 'none';
+  const mk = (svg, tip, fn, cls) => { const b = h('button', 'tb ' + cls, I(svg)); b.title = tip; b.onclick = fn; q('.tr').appendChild(b); };
+  mk('<path d="M6 12h12"/>', '縮到工作列', () => window.desk.min(), 'wmin');
+  mk('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', '關閉小浮板', () => window.desk.close(), 'wclose');
+  let saved = null; try { saved = localStorage.getItem('ma-layout'); } catch (e) { }
+  if (!saved) setTimeout(() => setCompact(true), 0); // the desktop window starts compact unless the user chose otherwise
+}
 })();
 </script>
 </body>
