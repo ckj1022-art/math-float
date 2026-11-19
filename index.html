@@ -594,6 +594,13 @@ header.top{cursor:auto}
 .desktop .wclose:hover{background:#e0566b;color:#fff}
 /* the top toolbar has room for every tool even in a short window */
 .compact .rb[data-mode=line],.compact #acts .rb:nth-child(2){display:flex}
+.pipOnly{display:none!important}
+.floating .pipOnly{display:flex!important}
+.wgrip{position:absolute;right:0;bottom:0;width:46px;height:46px;z-index:150;cursor:nwse-resize;touch-action:none;border-radius:46px 0 0 0;background:var(--glass);box-shadow:-2px -2px 8px rgba(80,60,75,.3)}
+.wgrip::after{content:"";position:absolute;right:9px;bottom:9px;width:16px;height:16px;border-right:3px solid var(--rose-d);border-bottom:3px solid var(--rose-d);border-radius:0 0 5px 0}
+.mini .wgrip{display:none!important}
+.wlab{position:absolute;right:54px;bottom:10px;z-index:150;background:rgba(59,42,51,.9);color:#fff;font-size:14px;font-weight:700;padding:7px 12px;border-radius:999px;pointer-events:none;white-space:nowrap}
+.wlab[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -1949,13 +1956,40 @@ async function goFloat() {
     const pw = await documentPictureInPicture.requestWindow({ width: half, height: tall });
     document.querySelectorAll('style,link[rel=stylesheet]').forEach(s => pw.document.head.appendChild(s.cloneNode(true)));
     pw.document.title = '數學小浮板'; pw.document.body.appendChild(app);
-    placeholder.hidden = false; win = pw; pipWin = pw; updPip(); setCompact(true); pw.document.body.style.background = THEMES[theme].body;
+    placeholder.hidden = false; win = pw; pipWin = pw; updPip(); app.classList.add('floating'); setCompact(true); pw.document.body.style.background = THEMES[theme].body;
     pw.document.addEventListener('keydown', onKey); pw.addEventListener('resize', fit);
-    pw.addEventListener('pagehide', () => { setCompact(compactPref); app.classList.remove('mini'); orb.hidden = true; document.body.appendChild(app); placeholder.hidden = true; win = window; pipWin = null; updPip(); requestAnimationFrame(fit); });
+    pw.addEventListener('pagehide', () => { app.classList.remove('floating'); setCompact(compactPref); app.classList.remove('mini'); orb.hidden = true; document.body.appendChild(app); placeholder.hidden = true; win = window; pipWin = null; updPip(); requestAnimationFrame(fit); });
     pw.requestAnimationFrame(fit); setTimeout(fit, 300);
   } catch (e) { toast('無法開啟浮動視窗：' + (e.message || e)); }
 }
 pipBtn.onclick = goFloat;
+// drag the corner grip to resize the floating window (finger-sized; the browser's own edge is too thin for touch)
+const wgrip = h('div', 'wgrip pipOnly'), wlab = h('div', 'wlab'); wgrip.title = '拖這個角調整視窗大小'; wlab.hidden = true; app.append(wgrip, wlab);
+wgrip.addEventListener('pointerdown', e => {
+  const pw = pipWin; if (!pw) return; e.preventDefault(); e.stopPropagation(); try { wgrip.setPointerCapture(e.pointerId); } catch (_) {}
+  const sx = e.screenX, sy = e.screenY, w0 = pw.outerWidth, h0 = pw.outerHeight; let tw = w0, th = h0, last = 0;
+  const apply = () => { try { pw.resizeTo(tw, th); } catch (_) {} };
+  const mv = ev => {
+    tw = Math.max(320, Math.round(w0 + ev.screenX - sx)); th = Math.max(240, Math.round(h0 + ev.screenY - sy));
+    wlab.hidden = false; wlab.textContent = `${tw} × ${th}　放開就套用`;
+    if (ev.timeStamp - last > 70) { last = ev.timeStamp; apply(); } // follows the finger where the browser allows it
+  };
+  const up = () => {
+    wgrip.removeEventListener('pointermove', mv); wgrip.removeEventListener('pointerup', up); wgrip.removeEventListener('pointercancel', up);
+    apply(); wlab.hidden = true;
+    setTimeout(() => { if (pipWin !== pw) return; fit(); if (Math.abs(pw.outerWidth - tw) > 40 || Math.abs(pw.outerHeight - th) > 40) toast('瀏覽器只讓視窗變到這個大小', 3000); }, 400);
+  };
+  wgrip.addEventListener('pointermove', mv); wgrip.addEventListener('pointerup', up); wgrip.addEventListener('pointercancel', up);
+});
+// touch panels: window edges are hard to grab, so the floating window gets its own smaller / bigger buttons
+[['winMinus', '<circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M16 16l4 4"/>', '視窗縮小一級', -1], ['winPlus', '<circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M11 8v6M16 16l4 4"/>', '視窗放大一級', 1]].forEach(([id, svg, tip2, dir]) => {
+  const b = h('button', 'tb pipOnly', I(svg)); b.id = id; b.title = tip2; q('.tr').insertBefore(b, pipBtn);
+  b.onclick = () => {
+    const pw = pipWin; if (!pw) return; const w0 = pw.outerWidth, h0 = pw.outerHeight;
+    try { pw.resizeBy(dir * 160, dir * 120); } catch (e) { }
+    setTimeout(() => { if (pipWin !== pw) return; fit(); if (Math.abs(pw.outerWidth - w0) < 8 && Math.abs(pw.outerHeight - h0) < 8) toast(dir > 0 ? '已經是瀏覽器允許的最大了' : '已經是最小了', 2500); }, 350);
+  };
+});
 document.getElementById('backBtn').onclick = () => pipWin && pipWin.close();
 window.addEventListener('resize', () => { if (!pipWin) fit(); });
 setMode('pen'); pickColor(PLUM); setNight(false); updPip(); fit();
